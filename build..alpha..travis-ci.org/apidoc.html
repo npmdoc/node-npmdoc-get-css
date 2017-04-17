@@ -1,0 +1,251 @@
+<div class="apidocDiv">
+<style>
+/*csslint
+*/
+.apidocDiv {
+    background: #fff;
+    font-family: Arial, Helvetica, sans-serif;
+}
+.apidocDiv a[href] {
+    color: #33f;
+    font-weight: bold;
+    text-decoration: none;
+}
+.apidocDiv a[href]:hover {
+    text-decoration: underline;
+}
+.apidocCodeCommentSpan {
+    background: #bbf;
+    color: #000;
+    display: block;
+}
+.apidocCodeKeywordSpan {
+    color: #d00;
+    font-weight: bold;
+}
+.apidocCodePre {
+    background: #eef;
+    border: 1px solid;
+    color: #777;
+    padding: 5px;
+    white-space: pre-wrap;
+}
+.apidocFooterDiv {
+    margin-top: 20px;
+    text-align: center;
+}
+.apidocModuleLi {
+    margin-top: 10px;
+}
+.apidocSectionDiv {
+    border-top: 1px solid;
+    margin-top: 20px;
+}
+.apidocSignatureSpan {
+    color: #777;
+    font-weight: bold;
+}
+</style>
+<h1>api documentation for
+    <a
+
+        href="https://github.com/cssstats/get-css"
+
+    >get-css (v1.2.3)</a>
+</h1>
+<h4>Get CSS from a URL</h4>
+<div class="apidocSectionDiv"><a
+    href="#apidoc.tableOfContents"
+    id="apidoc.tableOfContents"
+><h1>table of contents</h1></a><ol>
+
+    <li class="apidocModuleLi"><a href="#apidoc.module.get-css">module get-css</a><ol>
+
+        <li>
+
+            <a class="apidocElementLiA" href="#apidoc.element.get-css.get-css">
+            function <span class="apidocSignatureSpan"></span>get-css
+            <span class="apidocSignatureSpan">(url, options)</span>
+            </a>
+
+        </li>
+
+        <li>
+
+            <a class="apidocElementLiA" href="#apidoc.element.get-css.toString">
+            function <span class="apidocSignatureSpan">get-css.</span>toString
+            <span class="apidocSignatureSpan">()</span>
+            </a>
+
+        </li>
+
+    </ol></li>
+
+</ol></div>
+
+<div class="apidocSectionDiv">
+<h1><a href="#apidoc.module.get-css" id="apidoc.module.get-css">module get-css</a></h1>
+
+
+    <h2>
+        <a href="#apidoc.element.get-css.get-css" id="apidoc.element.get-css.get-css">
+        function <span class="apidocSignatureSpan"></span>get-css
+        <span class="apidocSignatureSpan">(url, options)</span>
+        </a>
+    </h2>
+    <ul>
+    <li>description and source-code<pre class="apidocCodePre">get-css = function (url, options){
+  var deferred = q.defer();
+  var options = options || {};
+  options.headers = options.headers || {};
+  options.headers[&#x27;User-Agent&#x27;] = options.headers[&#x27;User-Agent&#x27;] || ua;
+  options.timeout = options.timeout || 5000;
+  options.gzip = true;
+
+  if (typeof url !== &#x27;string&#x27; || isBlank(url) || !isUrl(url)) {
+    throw new TypeError(&#x27;get-css expected a url as a string&#x27;)
+  }
+
+  url = normalizeUrl(url, { stripWWW: false });
+  options.url = url;
+
+  if (options.ignoreCerts) {
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED = &#x27;0&#x27;;
+  }
+
+  var status = {
+    parsed: 0,
+    total: 0
+  };
+
+  var result = {
+    links: [],
+    styles: [],
+    css: &#x27;&#x27;
+  };
+
+  function handleResolve() {
+    if (status.parsed &#x3e;= status.total) {
+      deferred.resolve(result);
+    }
+  }
+
+  function parseHtml(html) {
+    var $ = cheerio.load(html);
+    result.pageTitle = $(&#x27;head &#x3e; title&#x27;).text();
+
+    $(&#x27;[rel=stylesheet]&#x27;).each(function() {
+      var link = $(this).attr(&#x27;href&#x27;);
+      result.links.push(createLink(link, url));
+    });
+
+    $(&#x27;style&#x27;).each(function() {
+      result.styles.push(stripHtmlComments($(this).text()));
+    });
+
+    status.total = result.links.length + result.styles.length;
+    if (!status.total) {
+      deferred.resolve(false);
+    }
+
+    result.links.forEach(function(link) {
+      getLinkContents(link.url, options)
+        .then(function(css) {
+          handleCssFromLink(link, css);
+        })
+        .catch(function(error) {
+          link.error = error;
+          status.parsed++;
+          handleResolve();
+        });
+    });
+
+    result.styles.forEach(function(css) {
+      result.css += css;
+      status.parsed++;
+      handleResolve();
+    });
+  }
+
+  function handleCssFromLink(link, css) {
+    link.css += css;
+
+    parseCssForImports(link, css);
+
+    status.parsed++;
+    handleResolve();
+  }
+
+  // Handle potential @import url(foo.css) statements in the CSS.
+  function parseCssForImports(link, css) {
+    link.imports = resolveCssImportUrls(link.url, css);
+    status.total += link.imports.length;
+    result.css += css;
+
+    link.imports.forEach(function(importUrl) {
+      var importLink = createLink(importUrl, importUrl);
+      result.links.push(importLink);
+
+      getLinkContents(importLink.url, options)
+        .then(function(css) {
+          handleCssFromLink(importLink, css);
+        })
+        .catch(function(error) {
+          link.error = error;
+          status.parsed++;
+          handleResolve();
+        });
+    });
+  }
+
+  request(options, function(error, response, body) {
+    if (error) {
+      if (options.verbose) console.log(&#x27;Error from &#x27; + url + &#x27; &#x27; + error);
+      deferred.reject(error);
+      return;
+    }
+
+    if (response &#x26;&#x26; response.statusCode != 200) {
+      if (options.verbose) console.log(&#x27;Received a &#x27; + response.statusCode + &#x27; from: &#x27; + url);
+      deferred.reject({ url: url, statusCode: response.code });
+      return;
+    }
+
+    if (isCss(url)) {
+      var link = createLink(url, url);
+      result.links.push(link);
+      handleCssFromLink(link, body);
+    } else {
+      parseHtml(body);
+    }
+  });
+
+  return deferred.promise;
+}</pre></li>
+    <li>example usage<pre class="apidocCodePre">n/a</pre></li>
+    </ul>
+
+
+
+    <h2>
+        <a href="#apidoc.element.get-css.toString" id="apidoc.element.get-css.toString">
+        function <span class="apidocSignatureSpan">get-css.</span>toString
+        <span class="apidocSignatureSpan">()</span>
+        </a>
+    </h2>
+    <ul>
+    <li>description and source-code<pre class="apidocCodePre">toString = function () {
+    return text;
+}</pre></li>
+    <li>example usage<pre class="apidocCodePre">n/a</pre></li>
+    </ul>
+
+
+</div>
+
+<div class="apidocFooterDiv">
+    [ this document was created with
+    <a href="https://github.com/kaizhu256/node-utility2" target="_blank">utility2</a>
+    ]
+</div>
+</div>
