@@ -1,4 +1,7 @@
-# api documentation for  [get-css (v1.2.3)](https://github.com/cssstats/get-css)  [![npm package](https://img.shields.io/npm/v/npmdoc-get-css.svg?style=flat-square)](https://www.npmjs.org/package/npmdoc-get-css) [![travis-ci.org build-status](https://api.travis-ci.org/npmdoc/node-npmdoc-get-css.svg)](https://travis-ci.org/npmdoc/node-npmdoc-get-css)
+# npmdoc-get-css
+
+#### api documentation for  [get-css (v1.2.3)](https://github.com/cssstats/get-css)  [![npm package](https://img.shields.io/npm/v/npmdoc-get-css.svg?style=flat-square)](https://www.npmjs.org/package/npmdoc-get-css) [![travis-ci.org build-status](https://api.travis-ci.org/npmdoc/node-npmdoc-get-css.svg)](https://travis-ci.org/npmdoc/node-npmdoc-get-css)
+
 #### Get CSS from a URL
 
 [![NPM](https://nodei.co/npm/get-css.png?downloads=true&downloadRank=true&stars=true)](https://www.npmjs.com/package/get-css)
